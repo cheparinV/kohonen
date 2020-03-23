@@ -25,4 +25,12 @@ public class Row {
         this.classValue = classValue;
         return this;
     }
+
+    @Override
+    public String toString() {
+        return "Row{" +
+                "weights=" + weights +
+                ", classValue=" + classValue +
+                '}';
+    }
 }

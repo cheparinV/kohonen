@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 
 public class SOM {
 
-    private List<Neuron> neurons;
+    private List<SomNeuron> neurons;
 
     private int weightSize;
 
@@ -20,6 +20,10 @@ public class SOM {
         this.weightSize = weightSize;
         this.length = length;
         this.width = width;
+    }
+
+    public void generateNeurons(List<List<Double>> rows) {
+        
     }
 
     public void generateNeurons() {
@@ -34,17 +38,17 @@ public class SOM {
         }
     }
 
-    private Neuron createNeuron() {
+    private SomNeuron createNeuron() {
         final RandomDataGenerator generator = new RandomDataGenerator();
         final ArrayList<Double> weights = new ArrayList<>(weightSize);
         for (int i = 0; i < weightSize; i++) {
             weights.add(generator.nextUniform(0.0, 1.0));
         }
 
-        return new Neuron().setWeights(weights);
+        return new SomNeuron().setWeights(weights);
     }
 
-    public List<Neuron> getNeurons() {
+    public List<SomNeuron> getNeurons() {
         return neurons;
     }
 
@@ -63,7 +67,7 @@ public class SOM {
     @Override
     public String toString() {
         return neurons.stream()
-                      .map(Neuron::toString)
+                      .map(SomNeuron::toString)
                       .collect(Collectors.joining("\n"));
     }
 }

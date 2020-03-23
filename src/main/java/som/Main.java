@@ -1,9 +1,6 @@
 package som;
 
-import tech.tablesaw.api.DoubleColumn;
-import tech.tablesaw.api.NumericColumn;
 import tech.tablesaw.api.Table;
-import tech.tablesaw.columns.Column;
 import tech.tablesaw.io.csv.CsvReadOptions;
 
 import java.io.IOException;
@@ -24,38 +21,23 @@ public class Main {
     public static Double SECOND_TAU_CONST = 1000.0;
 
     public static void main(String[] args) throws IOException {
-        String[] strings = new String[] {"friends", "followers"};
 
-        final Table strongTable = readTable("/Users/cheparinv/Downloads/strong.csv", strings);
-        final Table weakTable = readTable("/Users/cheparinv/Downloads/weak.csv", strings);
+        final DataProcessing processing = new DataProcessing();
+        String[] strings = new String[] {"friends", "followers", "photos", "pages", "videos"};
 
-        final DoubleColumn strongClass = DoubleColumn.create("class", Collections.nCopies(strongTable.rowCount(), 1.0));
-        final DoubleColumn weakClass = DoubleColumn.create("class", Collections.nCopies(weakTable.rowCount(), 0.0));
+        final Table strongTable = processing.addClassColumnToTable(
+                processing.readTable("/Users/cheparinv/Downloads/strong.csv", strings), 1.0);
 
-        strongTable.addColumns(strongClass);
-        weakTable.addColumns(weakClass);
+        final Table weakTable = processing.addClassColumnToTable(
+                processing.readTable("/Users/cheparinv/Downloads/weak.csv", strings), 0.0);
 
         System.out.println("Strong count: " + strongTable.rowCount());
         System.out.println("Weak count: " + weakTable.rowCount());
         System.out.println("All count: " + strongTable.append(weakTable).rowCount());
 
-        Table rowTable = strongTable;
-
-        final NumericColumn<?>[] numericColumns = rowTable.numberColumns();
-        final ArrayList<Column<?>> doubleColumns = new ArrayList<>();
-        System.out.println(rowTable);
-        for (NumericColumn<?> numericColumn : numericColumns) {
-            if (numericColumn.name().equals("class")) {
-                continue;
-            }
-            final DoubleColumn doubles = numericColumn.asDoubleColumn();
-            final double max = doubles.max();
-            final double min = doubles.min();
-            final double diff = max - min;
-            doubleColumns.add(doubles.map(aDouble -> (aDouble - min) / diff));
-        }
-        Table table = Table.create(doubleColumns);
-        System.out.println(table);
+        Table rowTable = processing.normalizedTable(strongTable);
+        Table table = rowTable.copy();
+        table.removeColumns("class");
 
         final SOM som = new SOM(strings.length, 5, 5);
         som.generateNeurons();
@@ -68,19 +50,19 @@ public class Main {
         for (int epoch = 0; epoch < 1000; epoch++) {
             for (List<Double> row : rows) {
                 double min = Double.MAX_VALUE;
-                final List<Neuron> neurons = som.getNeurons();
-                Neuron nearest = neurons.get(0);
-                for (Neuron neuron : neurons) {
+                final List<SomNeuron> neurons = som.getNeurons();
+                SomNeuron nearest = neurons.get(0);
+                for (SomNeuron neuron : neurons) {
                     final Double euclid = euclid(row, neuron.getWeights());
                     if (euclid < min) {
                         min = euclid;
                         nearest = neuron;
                     }
-                    for (Neuron localNeuron : neurons) {
-                        final Double diff = neuronDiff(nearest, localNeuron, sigma, fluent);
-                        if (diff != 0) {
-                            localNeuron.setWeights(weights(localNeuron.getWeights(), row, diff));
-                        }
+                }
+                for (SomNeuron localNeuron : neurons) {
+                    final Double diff = neuronDiff(nearest, localNeuron, sigma, fluent);
+                    if (!nearest.equals(localNeuron)) {
+                        localNeuron.setWeights(weights(localNeuron.getWeights(), row, diff));
                     }
                 }
             }
@@ -93,8 +75,8 @@ public class Main {
             }
         }
 
-        final Table newTable = table.copy();
-        newTable.addColumns(rowTable.column("class"));
+        final Table newTable = rowTable;
+        //newTable.addColumns(strongTable.column("class"));
         final List<Row> newRows = newTable.stream().map(row -> {
             final ArrayList<Double> weights = new ArrayList<>();
             for (String name : strings) {
@@ -102,33 +84,33 @@ public class Main {
             }
             return new Row().setWeights(weights).setClassValue(row.getDouble("class"));
         }).collect(Collectors.toList());
-        //        final List<List<Double>> newRows = tableToListOfVectors(newTable);
-        final HashMap<Double, List<Neuron>> classMap = new HashMap<>();
-        for (Neuron neuron : som.getNeurons()) {
+
+        final HashMap<Double, List<SomNeuron>> classMap = new HashMap<>();
+        for (SomNeuron neuron : som.getNeurons()) {
             final List<Double> weights = neuron.getWeights();
 
             final List<Row> rowsByNeuron = newRows.stream().sorted((o1, o2) ->
-                    euclid(weights, o1.getWeights()) < euclid(weights, o2.getWeights()) ? 1 : -1)
+                    euclid(weights, o1.getWeights()) < euclid(weights, o2.getWeights()) ? -1 : 1)
                                                   .collect(Collectors.toList());
 
             final int size = rowsByNeuron.size();
-            final Double classValue = rowsByNeuron.get(0).getClassValue();
             int firstClassCount = 0;
-            boolean isStop = false;
-            for (int i = 0; i < rowsByNeuron.size() && !isStop; i++) {
+            int secondClassCount = 0;
+            final int count = (int) (rowsByNeuron.size() * 0.2);
+            for (int i = 0; i < count; i++) {
                 final Row row = rowsByNeuron.get(i);
-                if (row.getClassValue().equals(classValue)) {
+                if (0.1 > row.getClassValue()) {
                     firstClassCount++;
                 } else {
-                    isStop = true;
+                    secondClassCount++;
                 }
             }
-            System.out.println("class value: " + classValue);
             System.out.println("first class count: " + firstClassCount);
+            System.out.println("second class count: " + secondClassCount);
             if ((firstClassCount / size) > 0.8) {
-                final List<Neuron> neurons = classMap.getOrDefault(classValue, new ArrayList<>());
-                neurons.add(neuron);
-                classMap.put(classValue, neurons);
+//                final List<Neuron> neurons = classMap.getOrDefault(classValue, new ArrayList<>());
+//                neurons.add(neuron);
+//                classMap.put(classValue, neurons);
             }
         }
 
@@ -177,7 +159,7 @@ public class Main {
         return Math.sqrt(sum);
     }
 
-    public static Double neuronDiff(Neuron val1, Neuron val2, Double sigma, Double fluent) {
+    public static Double neuronDiff(SomNeuron val1, SomNeuron val2, Double sigma, Double fluent) {
         double xDiff = (val1.getX() - val2.getX());
         double yDiff = (val1.getY() - val2.getY());
         double diff = xDiff * xDiff + yDiff * yDiff;

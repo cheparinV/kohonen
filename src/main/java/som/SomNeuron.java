@@ -2,7 +2,7 @@ package som;
 
 import java.util.List;
 
-public class Neuron {
+public class SomNeuron {
 
     private List<Double> weights;
 
@@ -10,11 +10,13 @@ public class Neuron {
 
     private Double y;
 
+    private Double error = 0.0;
+
     public List<Double> getWeights() {
         return weights;
     }
 
-    public Neuron setWeights(List<Double> weights) {
+    public SomNeuron setWeights(List<Double> weights) {
         this.weights = weights;
         return this;
     }
@@ -23,7 +25,7 @@ public class Neuron {
         return x;
     }
 
-    public Neuron setX(Double x) {
+    public SomNeuron setX(Double x) {
         this.x = x;
         return this;
     }
@@ -32,8 +34,17 @@ public class Neuron {
         return y;
     }
 
-    public Neuron setY(Double y) {
+    public SomNeuron setY(Double y) {
         this.y = y;
+        return this;
+    }
+
+    public Double getError() {
+        return error;
+    }
+
+    public SomNeuron setError(Double error) {
+        this.error = error;
         return this;
     }
 

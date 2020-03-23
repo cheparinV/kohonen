@@ -42,6 +42,19 @@
             <artifactId>commons-math3</artifactId>
             <version>3.5</version>
         </dependency>
+
+        <dependency>
+            <groupId>com.github.haifengl</groupId>
+            <artifactId>smile-core</artifactId>
+            <version>2.2.2</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.haifengl</groupId>
+            <artifactId>smile-io</artifactId>
+            <version>2.2.2</version>
+        </dependency>
+
     </dependencies>
 
 
