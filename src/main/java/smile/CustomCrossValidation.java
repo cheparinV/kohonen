@@ -23,7 +23,6 @@ public class CustomCrossValidation extends CrossValidation {
         int[] prediction = new int[x.length];
 
         ForkJoinPool customThreadPool = new ForkJoinPool(4);
-      //  customThreadPool.submit(() ->
                 IntStream.range(0, k)
                          .parallel()
                          .forEach(i -> {
@@ -36,17 +35,6 @@ public class CustomCrossValidation extends CrossValidation {
                                  prediction[j] = model.predict(x[j]);
                              }
                          });
-        //).join();
-        //        for (int i = 0; i < k; i++) {
-        //            T[] trainx = MathEx.slice(x, train[i]);
-        //            int[] trainy = MathEx.slice(y, train[i]);
-        //
-        //            Classifier<T> model = trainer.apply(trainx, trainy);
-        //
-        //            for (int j : test[i]) {
-        //                prediction[j] = model.predict(x[j]);
-        //            }
-        //        }
 
         return prediction;
     }

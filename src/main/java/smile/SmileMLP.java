@@ -8,9 +8,7 @@ import smile.data.DataFrame;
 import smile.data.vector.IntVector;
 import smile.io.Read;
 import smile.math.MathEx;
-import smile.validation.CrossValidation;
 import smile.validation.Error;
-import som.DataProcessing;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -20,30 +18,7 @@ public class SmileMLP {
 
     public static void main(String[] args) throws IOException, URISyntaxException {
 
-        final DataProcessing processing = new DataProcessing();
         String[] strings = new String[] {"friends", "followers", "photos", "pages", "videos"};
-        //String[] strings = new String[] {"friends", "followers"};
-
-//        final Table strongTable = processing.addClassColumnToTable(
-//                processing.readTable("/Users/cheparinv/Downloads/strong.csv", strings), 1.0);
-//
-//        final Table weakTable = processing.addClassColumnToTable(
-//                processing.readTable("/Users/cheparinv/Downloads/weak.csv", strings), 0.0);
-//
-//        System.out.println("Strong count: " + strongTable.rowCount());
-//        System.out.println("Weak count: " + weakTable.rowCount());
-//        System.out.println("All count: " + strongTable.append(weakTable).rowCount());
-//
-//        Table rowTable = processing.normalizedTable(strongTable);
-//        Table table = rowTable.copy();
-//        table.removeColumns("class");
-//        Plot.show(ScatterPlot.create("data", table, "friends", "followers"));
-//
-//        final int weightSize = strings.length;
-//
-//        final List<List<Double>> rows = processing.tableToListOfVectors(table);
-//        Collections.shuffle(rows);
-
         final CSVFormat format = CSVFormat.newFormat('\t').withFirstRecordAsHeader().withIgnoreEmptyLines()
                 .withTrim();
         final DataFrame csv = Read.csv("/Users/cheparinv/Downloads/strong.tsv", format);
@@ -54,8 +29,6 @@ public class SmileMLP {
         middle.drop("videos");
         final DataFrame merge =
                 middle.select("friends", "followers", "photos", "pages").merge(IntVector.of("videos", videos));
-        //middle.structure().column("videos").field().
-        //final Normalizer normalizer = new Normalizer(Normalizer.Norm.Inf);
         final CustomNormalizer normalizer = new CustomNormalizer();
         final DataFrame union = strong.union(weak).union(merge);
         final double[][] data = union.toArray();
