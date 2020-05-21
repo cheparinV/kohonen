@@ -32,12 +32,12 @@ public class Data {
         middle = middle.select("friends", "followers", "photos", "pages").merge(IntVector.of("videos", videos));
         middle = filter(middle).slice(0, 970);
         final CustomNormalizer normalizer = new CustomNormalizer();
-        DataFrame union = strong.union(weak);//.union(middle);
+        DataFrame union = strong.union(weak).union(middle);
         union = filter(union);
 
         final double[][] data = union.toArray();
-        //normalizer.setMaxDiff(data);
-        final double[][] x = data;// normalizer.transform(data);
+        normalizer.setMaxDiff(data);
+        final double[][] x = normalizer.transform(data);
         final int[] y = new int[x.length];
         Arrays.fill(y, 0, strong.size() - 1, 1);
         Arrays.fill(y, strong.size(), weak.size() + strong.size() - 1, 0);

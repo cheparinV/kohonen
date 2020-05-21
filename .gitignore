@@ -8,3 +8,5 @@ target/
 *.swp
 *.iml
 *.html
+.java-version
+.DS_Store

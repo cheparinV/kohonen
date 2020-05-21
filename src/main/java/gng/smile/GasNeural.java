@@ -16,6 +16,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -33,12 +34,23 @@ public class GasNeural {
         double[][] x = gasNeural.xData;
         final int[] y = gasNeural.yLabels;
 
+        final Map<Integer, Double> map = new TreeMap<>();
+        for (int i = 1; i <= 40; i++) {
+            gas(i, x, y, map);
+        }
+
+        map.forEach((key, value) -> System.out.println(key + "," + value.floatValue()));
+    }
+
+    public static void gas(int epochs, double[][] x, int[] y, Map<Integer, Double> outMap) {
+        final GasNeural gasNeural = new GasNeural();
+
         GrowingNeuralGas model = new GrowingNeuralGas(x[0].length);
-        for (int i = 1; i <= 22; i++) {
+        for (int i = 1; i <= epochs; i++) {
             for (int j : MathEx.permutate(x.length)) {
                 model.update(x[j]);
             }
-            System.out.format("%d neurons after %d epochs%n", model.neurons().length, i);
+            //System.out.format("%d neurons after %d epochs%n", model.neurons().length, i);
         }
 
         double error = 0.0;
@@ -60,11 +72,11 @@ public class GasNeural {
         final HashMap<double[], Integer> byClass = new HashMap<>();
         map.entrySet().forEach(mapEntry -> {
             final Integer integer = mapEntry.getValue().entrySet().stream()
-                                            .sorted(Comparator.comparingInt(Map.Entry::getValue))
-                                            .map(Map.Entry::getKey)
-                                            .findFirst().get();
+                    .sorted(Comparator.comparingInt(Map.Entry::getValue))
+                    .map(Map.Entry::getKey)
+                    .findFirst().get();
             byClass.put(mapEntry.getKey(), integer);
-            System.out.println(Arrays.toString(mapEntry.getKey()) + ": " + integer);
+            //System.out.println(Arrays.toString(mapEntry.getKey()) + ": " + integer);
         });
 
         int finalError = 0;
@@ -72,24 +84,29 @@ public class GasNeural {
             final double[] quantize = model.quantize(x[i]);
             finalError += byClass.get(quantize) != y[i] ? 1 : 0;
         }
-
-        System.out.println(((double) finalError / x.length));
+        System.out.println("Neurons : " + model.neurons().length);
+        final double accuracy = 1.0 - ((double) finalError / x.length);
+        System.out.println(accuracy);
 
         final double[][] weights = Arrays.stream(model.neurons()).map(n -> n.w).toArray(double[][]::new);
-        final XMeans xMeans = XMeans.fit(weights, 5);
+        final XMeans xMeans = XMeans.fit(weights, 20);
         System.out.println("Xmeans : " + xMeans);
-        analyze(xMeans, x, y);
+        final double first = analyze(xMeans, x, y);
 
-        final KMeans kMeans = KMeans.fit(weights, 5);
+        final KMeans kMeans = KMeans.fit(weights, 20);
         System.out.println("KMeans : " + kMeans);
-        analyze(kMeans, x, y);
+        final double second = analyze(kMeans, x, y);
 
-        final GMeans gMeans = GMeans.fit(weights, 5);
+        final GMeans gMeans = GMeans.fit(weights, 20);
         System.out.println("Gmeans : " + gMeans);
-        analyze(gMeans, x, y);
+        final double third = analyze(gMeans, x, y);
+
+        double max = Arrays.stream(new double[]{first, second, third}).max().getAsDouble();
+
+        outMap.put(model.neurons().length, max);
     }
 
-    public static void analyze(CentroidClustering model, double[][] x, int[] y) {
+    public static double analyze(CentroidClustering model, double[][] x, int[] y) {
         final HashMap<Integer, List<Integer>> centroidByClass = new HashMap<>();
         for (int i = 0; i < x.length; i++) {
             final int predict = model.predict(x[i]);
@@ -110,7 +127,9 @@ public class GasNeural {
             error[0] += collect.values().stream().max(Long::compareTo).get();
         });
 
-        System.out.println("Accuracy : " + ((double) error[0]) / x.length);
+        final double accuracy = ((double) error[0]) / x.length;
+        System.out.println("Accuracy : " + accuracy);
+        return accuracy;
     }
 
     public void loadData() throws IOException, URISyntaxException {
