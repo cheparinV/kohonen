@@ -3,14 +3,10 @@ package deep;
 import org.datavec.api.records.reader.RecordReader;
 import org.datavec.api.records.reader.impl.csv.CSVRecordReader;
 import org.datavec.api.split.FileSplit;
-import org.datavec.api.transform.TransformProcess;
-import org.datavec.api.transform.condition.ConditionOp;
-import org.datavec.api.transform.condition.column.LongColumnCondition;
-import org.datavec.api.transform.filter.ConditionFilter;
-import org.datavec.api.transform.schema.Schema;
 import org.deeplearning4j.datasets.datavec.RecordReaderDataSetIterator;
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
+import org.deeplearning4j.nn.conf.layers.BatchNormalization;
 import org.deeplearning4j.nn.conf.layers.DenseLayer;
 import org.deeplearning4j.nn.conf.layers.OutputLayer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
@@ -32,6 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,24 +38,17 @@ public class Students {
 
     public static void main(String[] args) throws IOException, InterruptedException {
 
-        int numLinesToSkip = 1;
+        int numLinesToSkip = 0;
         char delimiter = ',';
 
-        Schema inputDataSchema = new Schema.Builder()
-                .addColumnsLong("friends", "followers", "photos", "videos", "pages", "type")
-                .build();
-
-        TransformProcess tp = new TransformProcess.Builder(inputDataSchema)
-                .filter(new ConditionFilter(new LongColumnCondition("friends", ConditionOp.GreaterThan, 1000)))
-                .build();
-
         RecordReader recordReader = new CSVRecordReader(numLinesToSkip, delimiter);
-        recordReader.initialize(new FileSplit(new File("/Users/cheparinv/Documents/dl4j", "topBotLims.csv")));
-
+        final URL resource = Students.class.getClassLoader().getResource("transformed.csv");
+        recordReader.initialize(new FileSplit(new File(resource.getPath())));
         int labelIndex = 8;
         int numClasses = 2;
 
         DataSetIterator iterator = new RecordReaderDataSetIterator(recordReader, 10000, labelIndex, numClasses);
+
         NormalizerMinMaxScaler preProcessor = new NormalizerMinMaxScaler();
 
         log.info("Fitting with a dataset...............");
@@ -67,12 +57,12 @@ public class Students {
         log.info("Min: {}", preProcessor.getMin());
         log.info("Max: {}", preProcessor.getMax());
 
-        iterator.setPreProcessor(preProcessor);
+        //iterator.setPreProcessor(preProcessor);
 
         final DataSet data = iterator.next();
         data.shuffle();
         data.shuffle();
-        SplitTestAndTrain split = data.splitTestAndTrain(0.75);
+        SplitTestAndTrain split = data.splitTestAndTrain(0.85);
         final DataSet trainData = split.getTrain();
         final DataSet testData = split.getTest();
 
@@ -82,22 +72,32 @@ public class Students {
 
         for (IUpdater iUpdater : iUpdaters) {
             System.out.println("Started updater " + iUpdater.getClass().getSimpleName());
-            trainAndEvalModel(labelIndex, numClasses, 10000, iUpdater, split);
+            for (LossFunctions.LossFunction value : allLossFuncs()) {
+                trainAndEvalModel(labelIndex, numClasses, 10000, value, iUpdater, split);
+                System.out.println(value);
+            }
+
             System.out.println("Finished updater " + iUpdater.getClass().getSimpleName());
+            if (iUpdater instanceof Adam) {
+                System.out.println("Learn rate: " + ((Adam) iUpdater).getLearningRate());
+            }
         }
 
     }
 
     public static void trainAndEvalModel(int in, int out, int epochs,
-
+                                         LossFunctions.LossFunction lossFunc,
                                          IUpdater iUpdater,
                                          SplitTestAndTrain split) {
+        final double[] means = {0.33, 0.40, 0.32, 0.026, 0.013, 0.0027, 0.017, 0.04};
+        final double[] std = {0.47, 0.28, 0.25, 0.03, 0.02, 0.015, 0.046, 0.051};
+
         final MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
-                .activation(Activation.SIGMOID)
+                .activation(Activation.HARDSIGMOID)
                 .weightInit(WeightInit.XAVIER)
                 .updater(iUpdater)
                 //.l1(1e-4)
-                .weightDecay(0.001)
+                // .weightDecay(0.001)
                 //.l2(1e-3)
                 .list()
                 //                .layer(new IndicatorLayer.Builder().nIn(labelIndex)
@@ -107,28 +107,35 @@ public class Students {
                 //                .layer(new OutputLayer.Builder(LossFunctions.LossFunction.MSE)
                 //                        .nIn(4).nOut(numClasses).build())
 
-                //                .layer(new IndicatorLayer.Builder().nIn(labelIndex)
-                //                        .nOut(210)
-                //                        .dropOut(0.4)
-                //                        .indWeight(std)
-                //                        .build())
-                //                .layer(new DenseLayer.Builder().nIn(in)
-                //                                               .nOut(10)
-                //                                               .build())
+//                .layer(new DenseLayer.Builder().nIn(in)
+//                                               .nOut(210)
+//                                               //  .dropOut(0.5)
+//                                               //.indWeight(std)
+//                                               .build())
+//                .layer(new DenseLayer.Builder().nIn(210)
+//                                               .nOut(100)
+//                                               // .dropOut(0.5)
+//                                               .build())
+//                .layer(new DenseLayer.Builder().nIn(100)
+//                                               .nOut(15)
+//                                               //   .dropOut(0.5)
+//                                               .build())
                 //.layer(new BatchNormalization())
                 //                .layer(new DenseLayer.Builder().nIn(10)
                 //                                               .nOut(210)
                 //                                               .build())
                 .layer(new DenseLayer.Builder().nIn(in)
+                                               .nOut(7)
+                                               //.dropOut(0.5)
+                                               .build())
+                .layer(new BatchNormalization())
+                .layer(new DenseLayer.Builder().nIn(7)
                                                .nOut(5)
+                                               //.dropOut(0.5)
                                                .build())
-                //   .layer(new BatchNormalization())
-                .layer(new DenseLayer.Builder().nIn(5)
-                                               .nOut(3)
-                                               .build())
-                //.layer(new BatchNormalization())
-                .layer(new OutputLayer.Builder(LossFunctions.LossFunction.MSE)
-                        .nIn(3).nOut(out).build())
+                .layer(new BatchNormalization())
+                .layer(new OutputLayer.Builder(lossFunc)
+                        .nIn(5).nOut(out).build())
                 .build();
 
         final MultiLayerNetwork model = new MultiLayerNetwork(conf);
@@ -147,16 +154,44 @@ public class Students {
 
     public static List<IUpdater> allUpdaters() {
         final ArrayList<IUpdater> iUpdaters = new ArrayList<IUpdater>();
-        // iUpdaters.add(new AdaDelta()); // 55
-        // iUpdaters.add(new AdaGrad()); // 57
+        //     iUpdaters.add(new AdaDelta()); // 55
+        //   iUpdaters.add(new AdaGrad()); // 57
+        //1e-4 //61
+        //        double first = 1e-4;
+        //        double second = 1e-10;
+        //        double third = 9e-3;
+        //        double fourth = 999e-3;
+        //        for (int i = 0; i < 3; i++) {
+        //            iUpdaters.add(new Adam(first));
+        //            first /= 2;
+        //        }
         iUpdaters.add(new Adam()); // 62
-        // iUpdaters.add(new AdaMax()); //56
-        // iUpdaters.add(new AMSGrad()); //62
+        //   iUpdaters.add(new AdaMax()); //56
+        //   iUpdaters.add(new AMSGrad()); //62
         iUpdaters.add(new Nadam()); //60
-        // iUpdaters.add(new Nesterovs()); //56
-        // iUpdaters.add(new NoOp()); //52
-        // iUpdaters.add(new RmsProp()); //51
-        // iUpdaters.add(new Sgd()); //49
+        //     iUpdaters.add(new Nesterovs()); //56
+        //    iUpdaters.add(new NoOp()); //52
+        //     iUpdaters.add(new RmsProp()); //51
+        //     iUpdaters.add(new Sgd()); //49
         return iUpdaters;
+    }
+
+    public static List<LossFunctions.LossFunction> allLossFuncs() {
+        final List<LossFunctions.LossFunction> list = new ArrayList<>();
+        list.add(LossFunctions.LossFunction.MSE); //59
+        //  list.add(LossFunctions.LossFunction.L1);//60
+        //  list.add(LossFunctions.LossFunction.MCXENT);//60
+        //  list.add(LossFunctions.LossFunction.KL_DIVERGENCE);//60
+        //  list.add(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD);//60.5
+        //  list.add(LossFunctions.LossFunction.COSINE_PROXIMITY);//60
+        //  list.add(LossFunctions.LossFunction.HINGE);//60
+        //  list.add(LossFunctions.LossFunction.SQUARED_HINGE);//60
+        //  list.add(LossFunctions.LossFunction.MEAN_ABSOLUTE_ERROR);//60
+        //  list.add(LossFunctions.LossFunction.L2);//60
+        //  list.add(LossFunctions.LossFunction.MEAN_ABSOLUTE_PERCENTAGE_ERROR);
+        list.add(LossFunctions.LossFunction.MEAN_SQUARED_LOGARITHMIC_ERROR); //61
+        //  list.add(LossFunctions.LossFunction.POISSON);//60
+        //  list.add(LossFunctions.LossFunction.WASSERSTEIN);//39
+        return list;
     }
 }

@@ -87,12 +87,13 @@ public class IndicatorLayerImpl extends BaseLayer<IndicatorLayer> {
                     input.size(0),
                     input.size(1));
 
+            final double denominator = ((double) (W.columns())) / 10;
             for (int i = 0; i < input.columns(); i++) {
                 final INDArray column = input.getColumn(i);
                 for (int l = 0; l < column.length(); l++) {
                     final double value = column.getDouble(l) / indWeight[i];
                     for (int j = 0; j < W.columns(); j++) {
-                        if (value == j % 21) {
+                        if (value == j % denominator) {
                             coords.add(new Coords(l, i, i, j));
                             zeros.put(l, i, -1 * value);
                             weightIndex.put(i, j, 1);
@@ -106,13 +107,13 @@ public class IndicatorLayerImpl extends BaseLayer<IndicatorLayer> {
         for (Coords coord : coords) {
             final int[] inputShape = coord.getInputShape();
             final int[] weightShape = coord.getWeightShape();
-            mul.put(inputShape[0], weightShape[1], -1 * input.getDouble(inputShape)/indWeight[inputShape[1]]
+            mul.put(inputShape[0], weightShape[1], -1 * input.getDouble(inputShape) / indWeight[inputShape[1]]
                     * W.getDouble(weightShape));
         }
 
-
         INDArray ret = workspaceMgr.createUninitialized(ArrayType.ACTIVATIONS, W.dataType(), input.size(0), W.size(1));
-        input.castTo(ret.dataType()).mmuli(W, ret);//TODO Can we avoid this cast? (It sohuld be a no op if not required, however)
+        input.castTo(ret.dataType())
+             .mmuli(W, ret);//TODO Can we avoid this cast? (It sohuld be a no op if not required, however)
         ret = ret.addi(mul);
 
         INDArray preNorm = ret;
@@ -131,8 +132,6 @@ public class IndicatorLayerImpl extends BaseLayer<IndicatorLayer> {
 
         return new Pair<>(ret, preNorm);
     }
-
-
 
     @Override
     public boolean isPretrainLayer() {
